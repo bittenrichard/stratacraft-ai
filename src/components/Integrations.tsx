@@ -59,7 +59,42 @@ const Integrations = () => {
   };
 
   const handleConnect = async (platform: string) => {
-    // ... (código de conexão para Meta, Google Ads, etc. permanece o mesmo)
+    if (platform === 'meta') {
+      const appId = '707350985805370';
+      // Detecta ambiente para redirect_uri
+      const isLocal = window.location.hostname === 'localhost';
+      // Usando o mesmo formato que está no Facebook Developer
+      const redirectUri = isLocal
+        ? 'http://localhost:8080/oauth/meta/callback'
+        : 'https://dashboard.agenciastorytelling.com.br/oauth/meta/callback';
+      const scope = [
+        'ads_management',
+        'ads_read',
+        'business_management',
+        'pages_show_list',
+        'catalog_management',
+        'instagram_basic',
+        'instagram_content_publish',
+        'pages_read_engagement',
+        'pages_manage_ads',
+        'public_profile',
+        'attribution_read'
+      ].join(',');
+      
+      // Construir URL com URLSearchParams para garantir encoding correto
+      const params = new URLSearchParams({
+        client_id: appId,
+        redirect_uri: redirectUri,
+        scope: scope,
+        response_type: 'code',
+        state: 'meta'
+      });
+      
+      const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
+      window.location.href = authUrl;
+      return;
+    }
+    // ... (código de conexão para outras plataformas)
     toast({ title: `Conexão com ${platform} ainda não implementada.` });
   };
   

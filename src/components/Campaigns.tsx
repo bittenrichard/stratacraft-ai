@@ -1,48 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  Search, 
-  Play, 
-  Pause, 
-  Copy, 
-  Trash2, 
-  Plus,
-  ExternalLink,
-  MoreVertical,
-  RefreshCw,
-} from 'lucide-react';
+import React from 'react';
+import { Card } from '@/components/ui/card';
+import { MetaCampaigns } from './MetaCampaigns';
 import { Tables } from '@/integrations/supabase/types';
 
-type Campaign = Tables<'campaigns'>;
-type CampaignMetrics = Tables<'campaign_metrics'>;
-
-interface CampaignWithMetrics extends Campaign {
-  campaign_metrics: CampaignMetrics[];
-  metrics?: {
-    spend: number;
-    impressions: number;
-    clicks: number;
-    ctr: number;
-    cpc: number;
-    roas: number;
-  };
-}
-
 const Campaigns = () => {
-  const [campaigns, setCampaigns] = useState<CampaignWithMetrics[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterPlatform, setFilterPlatform] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchCampaigns();

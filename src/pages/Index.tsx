@@ -15,7 +15,17 @@ import AnalyticsView from '@/components/AnalyticsView'; // Importa a IA Analíti
 import ReportsView from '@/components/ReportsView';   // Importa os Relatórios
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Verifica se há uma tab para abrir do local storage
+  const initialTab = () => {
+    const savedTab = localStorage.getItem('openTab');
+    if (savedTab) {
+      localStorage.removeItem('openTab'); // Remove após ler
+      return savedTab;
+    }
+    return 'dashboard';
+  };
+
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const renderContent = () => {
     switch (activeTab) {

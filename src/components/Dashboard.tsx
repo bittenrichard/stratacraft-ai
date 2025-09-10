@@ -34,6 +34,26 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Dados de KPI e gráficos ainda como placeholders, pois dependem de métricas externas
+  // TODO: Substituir por dados reais de métricas e funil
+  const kpiData = [
+    { name: 'CPA', value: 'R$ 0,00', change: 0, isPositive: false },
+    { name: 'ROI', value: '0%', change: 0, isPositive: true },
+    { name: 'ROAS', value: '0.0x', change: 0, isPositive: true },
+    { name: 'CTR', value: '0.00%', change: 0, isPositive: true },
+  ];
+
+  const campaignChartData = [
+    { name: 'Jan', metaAds: 0, googleAds: 0 },
+    { name: 'Fev', metaAds: 0, googleAds: 0 },
+    { name: 'Mar', metaAds: 0, googleAds: 0 },
+    { name: 'Abr', metaAds: 0, googleAds: 0 },
+    { name: 'Mai', metaAds: 0, googleAds: 0 },
+    { name: 'Jun', metaAds: 0, googleAds: 0 },
+  ];
+
+  const aiSuggestions = []; // A ser implementado na Fase 4
+
   useEffect(() => {
     fetchTopCampaigns();
   }, []);
@@ -61,25 +81,6 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
-
-  // Dados de KPI e gráficos ainda como placeholders, pois dependem de métricas externas
-  const kpiData = [
-    { name: 'CPA', value: 'R$ 0,00', change: 0, isPositive: true },
-    { name: 'ROI', value: '0%', change: 0, isPositive: true },
-    { name: 'ROAS', value: '0.0x', change: 0, isPositive: true },
-    { name: 'CTR', value: '0.00%', change: 0, isPositive: false },
-  ];
-
-  const campaignChartData = [
-    { name: 'Jan', metaAds: 0, googleAds: 0 },
-    { name: 'Fev', metaAds: 0, googleAds: 0 },
-    { name: 'Mar', metaAds: 0, googleAds: 0 },
-    { name: 'Abr', metaAds: 0, googleAds: 0 },
-    { name: 'Mai', metaAds: 0, googleAds: 0 },
-    { name: 'Jun', metaAds: 0, googleAds: 0 },
-  ];
-
-  const aiSuggestions = []; // A ser implementado na Fase 4
 
   if (loading) {
     return (
