@@ -9,7 +9,9 @@ import {
   Users, 
   FileText,
   TrendingUp,
-  Zap
+  Zap,
+  Link,
+  Image
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,6 +23,8 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'campaigns', label: 'Campanhas', icon: TrendingUp },
+    { id: 'integrations', label: 'Integrações', icon: Link },
+    { id: 'creative-library', label: 'Biblioteca', icon: Image },
     { id: 'ai-creative', label: 'IA Criativa', icon: Brain },
     { id: 'analytics', label: 'IA Analítica', icon: Zap },
     { id: 'calendar', label: 'Calendário', icon: Calendar },

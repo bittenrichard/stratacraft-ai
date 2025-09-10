@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Dashboard from '@/components/Dashboard';
 import AICreative from '@/components/AICreative';
+import Campaigns from '@/components/Campaigns';
+import Integrations from '@/components/Integrations';
+import CreativeLibrary from '@/components/CreativeLibrary';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -13,6 +16,11 @@ const Index = () => {
       case 'ai-creative':
         return <AICreative />;
       case 'campaigns':
+        return <Campaigns />;
+      case 'integrations':
+        return <Integrations />;
+      case 'creative-library':
+        return <CreativeLibrary />;
       case 'analytics':
       case 'calendar':
       case 'diagnosis':
