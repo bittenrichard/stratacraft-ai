@@ -42,7 +42,7 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
     <div className="w-64 bg-gradient-card border-r border-border h-screen p-4 shadow-card">
       <div className="mb-8">
         <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Stratacraft AI
+          STL Marketing
         </h2>
         <p className="text-xs text-muted-foreground">Sua Central de Marketing</p>
       </div>
