@@ -5,12 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Search, 
-  Filter, 
   Play, 
   Pause, 
   Copy, 
@@ -19,20 +17,18 @@ import {
   ExternalLink,
   MoreVertical,
   RefreshCw,
-  Download
 } from 'lucide-react';
+import { Tables } from '@/integrations/supabase/types';
 
-interface Campaign {
-  id: string;
-  name: string;
-  status: string;
-  platform: string;
-  budget_amount: number;
-  budget_type: string;
-  start_date: string;
-  end_date: string;
-  objective: string;
-  metrics?: {
+// Usamos os tipos gerados pelo Supabase para as campanhas
+type Campaign = Tables<'campaigns'>;
+// E para as métricas
+type CampaignMetrics = Tables<'campaign_metrics'>;
+
+// Criamos um novo tipo que combina uma campanha com suas métricas
+interface CampaignWithMetrics extends Campaign {
+  campaign_metrics: CampaignMetrics[]; // Supabase retorna as métricas como um array
+  metrics?: { // Aqui vamos agregar os valores
     spend: number;
     impressions: number;
     clicks: number;
@@ -43,7 +39,7 @@ interface Campaign {
 }
 
 const Campaigns = () => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignWithMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,6 +52,7 @@ const Campaigns = () => {
   }, []);
 
   const fetchCampaigns = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('campaigns')
@@ -72,9 +69,44 @@ const Campaigns = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+      
+      const campaignsWithAggregatedMetrics = (data || []).map(campaign => {
+        const campaignMetrics = campaign.campaign_metrics as CampaignMetrics[];
+        
+        const aggregatedMetrics = campaignMetrics.reduce(
+          (acc, metric) => {
+            acc.spend += metric.spend || 0;
+            acc.impressions += metric.impressions || 0;
+            acc.clicks += metric.clicks || 0;
+            return acc;
+          },
+          { spend: 0, impressions: 0, clicks: 0 }
+        );
 
-      setCampaigns(data || []);
+        const ctr = aggregatedMetrics.impressions > 0 ? (aggregatedMetrics.clicks / aggregatedMetrics.impressions) * 100 : 0;
+        const cpc = aggregatedMetrics.clicks > 0 ? aggregatedMetrics.spend / aggregatedMetrics.clicks : 0;
+        
+        // A lógica de ROAS depende do `conversion_value`, que podemos adicionar depois.
+        // Por agora, vamos manter simples.
+        const totalConversionValue = campaignMetrics.reduce((sum, metric) => sum + (metric.conversion_value || 0), 0);
+        const roas = aggregatedMetrics.spend > 0 ? totalConversionValue / aggregatedMetrics.spend : 0;
+
+        return {
+          ...campaign,
+          metrics: {
+            ...aggregatedMetrics,
+            ctr,
+            cpc,
+            roas
+          },
+        };
+      });
+
+      setCampaigns(campaignsWithAggregatedMetrics as CampaignWithMetrics[]);
+
     } catch (error: any) {
       toast({
         title: "Erro ao carregar campanhas",
@@ -86,7 +118,7 @@ const Campaigns = () => {
     }
   };
 
-  const handleBulkAction = async (action: 'pause' | 'activate' | 'duplicate' | 'delete') => {
+  const handleBulkAction = async (action: 'pause' | 'activate' | 'delete') => {
     if (selectedCampaigns.length === 0) {
       toast({
         title: "Nenhuma campanha selecionada",
@@ -97,41 +129,28 @@ const Campaigns = () => {
     }
 
     try {
-      let updateData: any = {};
-      
-      switch (action) {
-        case 'pause':
-          updateData = { status: 'paused' };
-          break;
-        case 'activate':
-          updateData = { status: 'active' };
-          break;
-        case 'delete':
-          updateData = { status: 'deleted' };
-          break;
-        case 'duplicate':
-          // TODO: Implement duplication logic
-          toast({
-            title: "Funcionalidade em desenvolvimento",
-            description: "A duplicação de campanhas será implementada em breve.",
-          });
-          return;
+      if (action === 'delete') {
+        const { error } = await supabase
+          .from('campaigns')
+          .delete()
+          .in('id', selectedCampaigns);
+        if (error) throw error;
+      } else {
+        const newStatus = action === 'activate' ? 'active' : 'paused';
+        const { error } = await supabase
+          .from('campaigns')
+          .update({ status: newStatus })
+          .in('id', selectedCampaigns);
+        if (error) throw error;
       }
 
-      const { error } = await supabase
-        .from('campaigns')
-        .update(updateData)
-        .in('id', selectedCampaigns);
-
-      if (error) throw error;
-
       toast({
-        title: "Ação executada com sucesso",
+        title: "Ação executada com sucesso!",
         description: `${selectedCampaigns.length} campanha(s) foram atualizadas.`,
       });
 
       setSelectedCampaigns([]);
-      fetchCampaigns();
+      await fetchCampaigns();
     } catch (error: any) {
       toast({
         title: "Erro ao executar ação",
@@ -140,7 +159,7 @@ const Campaigns = () => {
       });
     }
   };
-
+  
   const toggleCampaignSelection = (campaignId: string) => {
     setSelectedCampaigns(prev => 
       prev.includes(campaignId) 
@@ -174,7 +193,7 @@ const Campaigns = () => {
       default: return 'outline';
     }
   };
-
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-subtle p-6 flex items-center justify-center">
@@ -188,7 +207,6 @@ const Campaigns = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-6">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
           Gestão de Campanhas
@@ -198,7 +216,6 @@ const Campaigns = () => {
         </p>
       </div>
 
-      {/* Filters and Actions */}
       <Card className="bg-gradient-card border-border shadow-card mb-6">
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
@@ -212,7 +229,6 @@ const Campaigns = () => {
                   className="pl-10"
                 />
               </div>
-              
               <Select value={filterPlatform} onValueChange={setFilterPlatform}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Plataforma" />
@@ -224,7 +240,6 @@ const Campaigns = () => {
                   <SelectItem value="tiktok">TikTok Ads</SelectItem>
                 </SelectContent>
               </Select>
-
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
@@ -237,7 +252,6 @@ const Campaigns = () => {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={fetchCampaigns}>
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -249,8 +263,6 @@ const Campaigns = () => {
               </Button>
             </div>
           </div>
-
-          {/* Bulk Actions */}
           {selectedCampaigns.length > 0 && (
             <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
               <div className="flex items-center justify-between">
@@ -266,10 +278,6 @@ const Campaigns = () => {
                     <Pause className="h-4 w-4 mr-1" />
                     Pausar
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('duplicate')}>
-                    <Copy className="h-4 w-4 mr-1" />
-                    Duplicar
-                  </Button>
                   <Button size="sm" variant="destructive" onClick={() => handleBulkAction('delete')}>
                     <Trash2 className="h-4 w-4 mr-1" />
                     Excluir
@@ -281,7 +289,6 @@ const Campaigns = () => {
         </CardContent>
       </Card>
 
-      {/* Campaigns List */}
       <div className="space-y-4">
         {filteredCampaigns.length === 0 ? (
           <Card className="bg-gradient-card border-border shadow-card">
@@ -289,7 +296,7 @@ const Campaigns = () => {
               <div className="text-muted-foreground">
                 <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-medium mb-2">Nenhuma campanha encontrada</h3>
-                <p>Tente ajustar os filtros ou criar uma nova campanha.</p>
+                <p>Crie uma nova campanha ou ajuste seus filtros de busca.</p>
               </div>
             </CardContent>
           </Card>
@@ -304,22 +311,19 @@ const Campaigns = () => {
                       onCheckedChange={() => toggleCampaignSelection(campaign.id)}
                       className="mt-1"
                     />
-                    
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge className={`${getPlatformBadgeColor(campaign.platform)} text-white`}>
-                          {campaign.platform === 'meta' ? 'Meta' : campaign.platform === 'google' ? 'Google' : 'TikTok'}
+                          {campaign.platform}
                         </Badge>
                         <Badge variant={getStatusBadgeVariant(campaign.status)}>
-                          {campaign.status === 'active' ? 'Ativa' : campaign.status === 'paused' ? 'Pausada' : 'Excluída'}
+                          {campaign.status}
                         </Badge>
                       </div>
-                      
                       <h3 className="text-lg font-semibold text-foreground mb-1">{campaign.name}</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        {campaign.objective} • Orçamento: R$ {campaign.budget_amount?.toFixed(2) || '0.00'} ({campaign.budget_type || 'daily'})
+                        {campaign.objective} • Orçamento: R$ {campaign.budget_amount?.toFixed(2) || 'N/A'} ({campaign.budget_type})
                       </p>
-
                       {campaign.metrics && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                           <div>
@@ -350,7 +354,6 @@ const Campaigns = () => {
                       )}
                     </div>
                   </div>
-
                   <div className="flex items-center space-x-2 ml-4">
                     <Button size="sm" variant="outline">
                       <ExternalLink className="h-4 w-4" />

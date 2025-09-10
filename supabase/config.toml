@@ -1,1 +1,8 @@
+# Este é o ID do seu projeto, que já estava correto.
 project_id = "cwnioogiqacbqunaungs"
+
+# Aplicamos a configuração diretamente para a função 'sync-campaigns'
+[functions.sync-campaigns]
+  # CORREÇÃO: Removemos o "supabase/" do início do caminho.
+  # O caminho correto é relativo à pasta 'supabase'.
+  import_map = "functions/_shared/import_map.json"
