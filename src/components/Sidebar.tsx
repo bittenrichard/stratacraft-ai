@@ -11,7 +11,9 @@ import {
   TrendingUp,
   Zap,
   Link,
-  Image
+  Image,
+  Filter,
+  ClipboardList // Ícone para Leads
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,6 +24,8 @@ interface SidebarProps {
 const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'funnel', label: 'Funil de Vendas', icon: Filter },
+    { id: 'leads', label: 'Leads', icon: ClipboardList }, // <-- ADICIONADO AQUI
     { id: 'campaigns', label: 'Campanhas', icon: TrendingUp },
     { id: 'integrations', label: 'Integrações', icon: Link },
     { id: 'creative-library', label: 'Biblioteca', icon: Image },
@@ -36,15 +40,13 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
 
   return (
     <div className="w-64 bg-gradient-card border-r border-border h-screen p-4 shadow-card">
-      {/* Logo */}
       <div className="mb-8">
         <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          MarketingAI
+          Stratacraft AI
         </h2>
-        <p className="text-xs text-muted-foreground">Plataforma SaaS</p>
+        <p className="text-xs text-muted-foreground">Sua Central de Marketing</p>
       </div>
 
-      {/* Menu Items */}
       <nav className="space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -66,7 +68,6 @@ const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
         })}
       </nav>
 
-      {/* Bottom Section */}
       <div className="absolute bottom-4 left-4 right-4">
         <div className="bg-muted/30 rounded-lg p-3 border border-border">
           <h4 className="text-sm font-medium text-foreground mb-1">Upgrade Pro</h4>

@@ -5,6 +5,9 @@ import AICreative from '@/components/AICreative';
 import Campaigns from '@/components/Campaigns';
 import Integrations from '@/components/Integrations';
 import CreativeLibrary from '@/components/CreativeLibrary';
+import CalendarView from '@/components/CalendarView';
+import FunnelView from '@/components/FunnelView';
+import LeadsView from '@/components/LeadsView'; // 1. Importamos o componente de Leads
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -13,6 +16,10 @@ const Index = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard />;
+      case 'funnel':
+        return <FunnelView />;
+      case 'leads': // 2. Adicionamos o "case" para leads
+        return <LeadsView />; // 3. Renderizamos nosso novo componente
       case 'ai-creative':
         return <AICreative />;
       case 'campaigns':
@@ -21,8 +28,9 @@ const Index = () => {
         return <Integrations />;
       case 'creative-library':
         return <CreativeLibrary />;
-      case 'analytics':
       case 'calendar':
+        return <CalendarView />;
+      case 'analytics':
       case 'diagnosis':
       case 'reports':
       case 'team':
@@ -34,12 +42,11 @@ const Index = () => {
                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
               </h1>
               <p className="text-muted-foreground mb-6">
-                Esta seção será implementada após conectar o Supabase para funcionalidades backend
+                Esta seção será implementada em breve.
               </p>
               <div className="bg-gradient-card border border-border rounded-lg p-6 max-w-md mx-auto">
                 <p className="text-sm text-muted-foreground">
-                  Para ativar integrações com APIs (Meta Ads, Google Ads), IA e banco de dados, 
-                  conecte seu projeto ao Supabase clicando no botão verde no canto superior direito.
+                  Funcionalidades avançadas como esta serão o próximo passo na evolução da plataforma.
                 </p>
               </div>
             </div>
@@ -53,7 +60,7 @@ const Index = () => {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="flex-1">
+      <div className="flex-1 overflow-auto">
         {renderContent()}
       </div>
     </div>

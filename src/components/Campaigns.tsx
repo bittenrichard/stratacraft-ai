@@ -20,15 +20,12 @@ import {
 } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 
-// Usamos os tipos gerados pelo Supabase para as campanhas
 type Campaign = Tables<'campaigns'>;
-// E para as métricas
 type CampaignMetrics = Tables<'campaign_metrics'>;
 
-// Criamos um novo tipo que combina uma campanha com suas métricas
 interface CampaignWithMetrics extends Campaign {
-  campaign_metrics: CampaignMetrics[]; // Supabase retorna as métricas como um array
-  metrics?: { // Aqui vamos agregar os valores
+  campaign_metrics: CampaignMetrics[];
+  metrics?: {
     spend: number;
     impressions: number;
     clicks: number;
@@ -64,7 +61,8 @@ const Campaigns = () => {
             clicks,
             ctr,
             cpc,
-            roas
+            roas,
+            conversion_value
           )
         `)
         .order('created_at', { ascending: false });
@@ -74,25 +72,23 @@ const Campaigns = () => {
       }
       
       const campaignsWithAggregatedMetrics = (data || []).map(campaign => {
-        const campaignMetrics = campaign.campaign_metrics as CampaignMetrics[];
+        // CORREÇÃO: Verificamos se campaign_metrics é um array antes de usar o .reduce()
+        const campaignMetrics = Array.isArray(campaign.campaign_metrics) ? campaign.campaign_metrics as CampaignMetrics[] : [];
         
         const aggregatedMetrics = campaignMetrics.reduce(
           (acc, metric) => {
             acc.spend += metric.spend || 0;
             acc.impressions += metric.impressions || 0;
             acc.clicks += metric.clicks || 0;
+            acc.conversion_value += metric.conversion_value || 0;
             return acc;
           },
-          { spend: 0, impressions: 0, clicks: 0 }
+          { spend: 0, impressions: 0, clicks: 0, conversion_value: 0 }
         );
 
         const ctr = aggregatedMetrics.impressions > 0 ? (aggregatedMetrics.clicks / aggregatedMetrics.impressions) * 100 : 0;
         const cpc = aggregatedMetrics.clicks > 0 ? aggregatedMetrics.spend / aggregatedMetrics.clicks : 0;
-        
-        // A lógica de ROAS depende do `conversion_value`, que podemos adicionar depois.
-        // Por agora, vamos manter simples.
-        const totalConversionValue = campaignMetrics.reduce((sum, metric) => sum + (metric.conversion_value || 0), 0);
-        const roas = aggregatedMetrics.spend > 0 ? totalConversionValue / aggregatedMetrics.spend : 0;
+        const roas = aggregatedMetrics.spend > 0 ? aggregatedMetrics.conversion_value / aggregatedMetrics.spend : 0;
 
         return {
           ...campaign,
