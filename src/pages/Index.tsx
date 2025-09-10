@@ -9,7 +9,10 @@ import CalendarView from '@/components/CalendarView';
 import FunnelView from '@/components/FunnelView';
 import LeadsView from '@/components/LeadsView';
 import SettingsView from '@/components/SettingsView';
-import TeamView from '@/components/TeamView'; // 1. Importamos a tela de Equipe
+import TeamView from '@/components/TeamView';
+import DiagnosisView from '@/components/DiagnosisView';
+import AnalyticsView from '@/components/AnalyticsView'; // Importa a IA Analítica
+import ReportsView from '@/components/ReportsView';   // Importa os Relatórios
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,20 +28,10 @@ const Index = () => {
       case 'creative-library': return <CreativeLibrary />;
       case 'calendar': return <CalendarView />;
       case 'settings': return <SettingsView />;
-      case 'team': return <TeamView />; // 2. Adicionamos o "case" para a equipe
-      case 'analytics':
-      case 'diagnosis':
-      case 'reports':
-        return (
-          <div className="min-h-screen bg-gradient-subtle p-6 flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-              </h1>
-              <p className="text-muted-foreground mb-6">Esta seção será implementada em breve.</p>
-            </div>
-          </div>
-        );
+      case 'team': return <TeamView />;
+      case 'diagnosis': return <DiagnosisView />;
+      case 'analytics': return <AnalyticsView />; // Adiciona o case
+      case 'reports': return <ReportsView />;     // Adiciona o case
       default:
         return <Dashboard />;
     }
