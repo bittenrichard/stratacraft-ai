@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Tabela ad_integrations</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px 0; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; white-space: pre-wrap; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .success { border-color: #28a745; background: #d4edda; }
+    </style>
+</head>
+<body>
+    <h1>Teste Acesso Tabela ad_integrations</h1>
+    
+    <button onclick="testTableAccess()">Testar Acesso à Tabela</button>
+    <button onclick="testInsert()">Testar Inserção</button>
+    
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        
+        const supabase = createClient(
+            'https://cwnioogiqacbqunaungs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3bmlvb2dpcWFjYnF1bmF1bmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NzA4NjgsImV4cCI6MjA3MzA0Njg2OH0.rm6ahFHwS-p_ZXKb6vqwEqypv7Qe76ZR8uJps5M0moE'
+        );
+
+        function showResult(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = isError ? 'result error' : 'result success';
+            resultDiv.style.display = 'block';
+        }
+
+        window.testTableAccess = async function() {
+            try {
+                showResult('Testando acesso à tabela ad_integrations...', false);
+                
+                const { data, error } = await supabase
+                    .from('ad_integrations')
+                    .select('*')
+                    .limit(5);
+
+                if (error) {
+                    showResult(`Erro ao acessar tabela: ${JSON.stringify(error, null, 2)}`, true);
+                } else {
+                    showResult(`Sucesso! Dados encontrados: ${JSON.stringify(data, null, 2)}`, false);
+                }
+            } catch (error) {
+                showResult(`Erro na requisição: ${error.message}`, true);
+            }
+        };
+
+        window.testInsert = async function() {
+            try {
+                showResult('Testando inserção na tabela ad_integrations...', false);
+                
+                const testData = {
+                    workspace_id: 'test-workspace-123',
+                    platform: 'meta-test',
+                    access_token: 'test-token',
+                    account_id: 'test-account',
+                    account_name: 'Test Account',
+                    is_active: true,
+                    settings: { test: true }
+                };
+
+                const { data, error } = await supabase
+                    .from('ad_integrations')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    showResult(`Erro ao inserir: ${JSON.stringify(error, null, 2)}`, true);
+                } else {
+                    showResult(`Sucesso na inserção! Dados: ${JSON.stringify(data, null, 2)}`, false);
+                }
+            } catch (error) {
+                showResult(`Erro na requisição: ${error.message}`, true);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -3,6 +3,67 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+// Função para salvar a integração com a conta selecionada
+const saveIntegration = async (selectedAccount: any, accessToken: string, userInfo: any, workspaceId: string, adAccounts: any[]) => {
+  console.log('Salvando integração para conta:', selectedAccount.name, selectedAccount.id);
+  
+  const integrationData = {
+    workspace_id: workspaceId,
+    platform: 'meta',
+    access_token: accessToken,
+    account_id: selectedAccount.id.replace('act_', ''), // Remover prefixo 'act_' se presente
+    account_name: selectedAccount.name,
+    is_active: true,
+    settings: {
+      user_info: userInfo,
+      ad_accounts: adAccounts,
+      selected_account: selectedAccount
+    }
+  };
+
+  try {
+    // Primeiro, verificar se já existe uma integração Meta para este workspace
+    const { data: existing, error: checkError } = await supabase
+      .from('ad_integrations')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('platform', 'meta')
+      .limit(1);
+
+    let result;
+    if (existing && existing.length > 0) {
+      // Atualizar existente
+      result = await supabase
+        .from('ad_integrations')
+        .update(integrationData)
+        .eq('id', existing[0].id)
+        .select();
+    } else {
+      // Inserir novo
+      result = await supabase
+        .from('ad_integrations')
+        .insert([integrationData])
+        .select();
+    }
+
+    if (result.error) {
+      console.error('Erro ao salvar integração no banco:', result.error);
+      throw result.error;
+    } else {
+      console.log('Integração salva com sucesso no banco!', result.data);
+    }
+  } catch (dbError) {
+    console.error('Erro na tentativa de salvar no banco:', dbError);
+    // Salvar no localStorage como fallback
+    const localStorageKey = `meta_integration_data_${workspaceId}`;
+    localStorage.setItem(localStorageKey, JSON.stringify({
+      ...integrationData,
+      created_at: new Date().toISOString()
+    }));
+    console.log('Dados salvos no localStorage como fallback');
+  }
+};
+
 export default function MetaCallback() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -46,108 +107,108 @@ export default function MetaCallback() {
         const requestBody = {
           code,
           redirect_uri: redirectUri,
+          workspace_id: workspaceId,
+          app_id: '707350985805370', // Meta App ID
+          app_secret: 'c960b0d5bab06fc898a209ade4435007' // Meta App Secret
+        };
+        
+        console.log('Fazendo troca do código por token diretamente via Meta API...');
+
+        // Fazer a troca do código pelo token diretamente via Meta API
+        const metaTokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?` +
+          `client_id=${requestBody.app_id}` +
+          `&redirect_uri=${encodeURIComponent(requestBody.redirect_uri)}` +
+          `&client_secret=${requestBody.app_secret}` +
+          `&code=${requestBody.code}`;
+
+        const metaResponse = await fetch(metaTokenUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!metaResponse.ok) {
+          const errorText = await metaResponse.text();
+          console.error('Erro na resposta do Meta:', metaResponse.status, errorText);
+          throw new Error(`Meta API error: ${metaResponse.status} - ${errorText}`);
+        }
+
+        const tokenData = await metaResponse.json();
+        console.log('Token recebido do Meta:', tokenData.access_token ? 'presente' : 'ausente');
+
+        if (!tokenData.access_token) {
+          throw new Error('Token não retornado pelo Meta');
+        }
+
+        // Buscar informações do usuário do Meta
+        console.log('Buscando informações do usuário Meta...');
+        const userInfoResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me?access_token=${tokenData.access_token}&fields=id,name,email`
+        );
+
+        const userInfo = await userInfoResponse.json();
+        console.log('Informações do usuário:', { id: userInfo.id, name: userInfo.name });
+
+        // Buscar contas de anúncios
+        console.log('Buscando contas de anúncios...');
+        const adAccountsResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me/adaccounts?access_token=${tokenData.access_token}&fields=id,name,account_status,currency`
+        );
+
+        const adAccountsData = await adAccountsResponse.json();
+        const adAccounts = adAccountsData.data || [];
+        console.log(`Encontradas ${adAccounts.length} contas de anúncios`);
+
+        // Se não há contas de anúncios, mostrar erro
+        if (adAccounts.length === 0) {
+          throw new Error('Nenhuma conta de anúncios encontrada. Verifique se você tem acesso a contas de anúncios no Meta Business Manager.');
+        }
+
+        // Se há apenas uma conta, usar automaticamente
+        if (adAccounts.length === 1) {
+          const selectedAccount = adAccounts[0];
+          await saveIntegration(selectedAccount, tokenData.access_token, userInfo, workspaceId, adAccounts);
+          
+          toast({
+            title: "Conexão bem sucedida!",
+            description: `Conta ${selectedAccount.name} conectada com sucesso!`
+          });
+
+          localStorage.setItem('openTab', 'integrations');
+          navigate('/');
+          return;
+        }
+
+        // Se há múltiplas contas, salvar dados temporários e redirecionar para seleção
+        const tempData = {
+          access_token: tokenData.access_token,
+          user_info: userInfo,
+          ad_accounts: adAccounts,
           workspace_id: workspaceId
         };
-        
-        console.log('Fazendo requisição para servidor com body:', requestBody);
 
-        // Faz a troca do código pelo token
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
-
-        const response = await fetch('http://localhost:3001/api/meta-exchange-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-        console.log('Resposta recebida:', response.status, response.statusText);
-
-        if (!response.ok) {
-          const error = await response.json();
-          console.error('Erro da resposta:', error);
-          throw new Error(error.message || 'Erro ao trocar código por token');
-        }
-
-        const data = await response.json();
-        console.log('Dados recebidos do servidor:', data);
-        
-        // Primeiro, salva no localStorage para não perder os dados
-        localStorage.setItem('meta_access_token', data.access_token);
-        if (data.account_info) {
-          localStorage.setItem('meta_account_info', JSON.stringify(data.account_info));
-        }
-        
-        // Tenta salvar integração diretamente no Supabase (primeira tentativa)
-        console.log('Salvando integração no Supabase...');
-        const integrationData = {
-          workspace_id: workspaceId,
-          platform: 'meta',
-          access_token: data.access_token,
-          account_id: data.account_info?.id || null,
-          account_name: data.account_info?.name || 'Meta Account',
-          is_active: true,
-          expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null,
-          settings: {
-            account_status: data.account_info?.account_status,
-            token_type: data.token_type
-          }
-        };
-
-        const { data: dbData, error: dbError } = await supabase
-          .from('ad_integrations')
-          .insert([integrationData])
-          .select();
-
-        if (dbError) {
-          console.error('Erro ao salvar no Supabase:', dbError);
-          
-          // Se falhar, tenta fazer uma requisição para o backend salvar
-          console.log('Tentando salvar via backend...');
-          try {
-            const saveResponse = await fetch('http://localhost:3001/api/save-integration', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(integrationData)
-            });
-            
-            if (saveResponse.ok) {
-              const saveResult = await saveResponse.json();
-              console.log('Salvo via backend com sucesso:', saveResult);
-            } else {
-              console.log('Erro ao salvar via backend:', await saveResponse.text());
-            }
-          } catch (saveError) {
-            console.error('Erro na requisição de save:', saveError);
-          }
-        } else {
-          console.log('Integração salva com sucesso no Supabase:', dbData);
-        }
-        
-        // Notifica o usuário
-        toast({
-          title: "Conexão bem sucedida!",
-          description: `Conta ${data.account_info?.name || ''} conectada com sucesso.`
-        });
-
-        // Redireciona de volta para a página inicial e sinaliza para abrir a tab de integrações
-        localStorage.setItem('openTab', 'integrations');
-        navigate('/');
+        sessionStorage.setItem('meta_temp_data', JSON.stringify(tempData));
+        navigate('/meta/select-account');
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         console.error('Erro no callback:', error);
+        
+        // Tentar fallback: salvar dados básicos localmente
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        if (code) {
+          localStorage.setItem('meta_auth_code', code);
+          localStorage.setItem('meta_auth_attempted', Date.now().toString());
+        }
+        
         toast({
           title: "Erro na conexão",
           description: errorMessage,
           variant: "destructive"
         });
-        // No erro também redirecionamos para a página inicial
+        
+        // Redireciona para integrações mesmo com erro
         localStorage.setItem('openTab', 'integrations');
         navigate('/');
       }

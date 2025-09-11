@@ -47,7 +47,7 @@ const MetaCampaigns = () => {
       console.log('Buscando campanhas para workspace:', workspaceId);
 
       // Buscar campanhas via API do servidor
-      const response = await fetch(`http://localhost:3001/api/meta-campaigns?workspace_id=${workspaceId}`);
+      const response = await fetch(`http://localhost:3012/api/meta-campaigns?workspace_id=${workspaceId}`);
       
       if (!response.ok) {
         const errorData = await response.json();

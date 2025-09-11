@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw, TrendingUp, Eye, MousePointer, DollarSign, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Campaign {
@@ -43,29 +43,262 @@ interface Campaign {
   };
 }
 
-interface CampaignData {
-  success: boolean;
-  account_id: string;
-  account_name: string;
-  campaigns: Campaign[];
-  total_campaigns: number;
-  last_sync: string;
-}
-
-const MetaCampaignsWithSync = () => {
+const MetaCampaignsDemo = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [filteredCampaigns, setFilteredCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountInfo, setAccountInfo] = useState<{ id: string; name: string } | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [integrations, setIntegrations] = useState<{id: string, platform: string, is_active: boolean}[]>([]);
+  const [hasConnectedIntegrations, setHasConnectedIntegrations] = useState(false);
   
   // Estados para o calendário de período
-  const [dateRange, setDateRange] = useState<{since: string, until: string} | null>(null);
+  const [dateRange, setDateRange] = useState<{since: string, until: string}>({
+    since: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    until: format(new Date(), 'yyyy-MM-dd')
+  });
   const [selectedPreset, setSelectedPreset] = useState<string>('last_30d');
   const [showCalendar, setShowCalendar] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  // Dados de demonstração com actions corretas
+  const demoData = [
+    {
+      id: '120210000000000001',
+      name: '[L] - ENGAJAMENTO - MENSAGEM - IG - 13/08/2025',
+      status: 'ACTIVE',
+      objective: 'OUTCOME_ENGAGEMENT',
+      daily_budget: '15000',
+      created_time: '2025-08-13T10:00:00+0000',
+      insights: {
+        data: [{
+          impressions: '41634',
+          clicks: '1369',
+          spend: '546.11',
+          reach: '24454',
+          cpm: '13.12',
+          cpc: '0.28',
+          ctr: '4.73308',
+          conversions: '0',
+          cost_per_conversion: '0',
+          conversion_rate: '0',
+          date_start: '2025-08-13',
+          date_stop: '2025-09-11',
+          actions: [
+            { action_type: 'like', value: '89' },
+            { action_type: 'comment', value: '43' },
+            { action_type: 'share', value: '12' },
+            { action_type: 'post_engagement', value: '216' }
+          ]
+        }]
+      }
+    },
+    {
+      id: '120210000000000002',
+      name: '[VIEW VÍDEO] - FEED/REELS - 03/07',
+      status: 'ACTIVE', 
+      objective: 'VIDEO_VIEWS',
+      daily_budget: '8000',
+      created_time: '2025-07-03T10:00:00+0000',
+      insights: {
+        data: [{
+          impressions: '125847',
+          clicks: '8392',
+          spend: '423.67',
+          reach: '89234',
+          cpm: '3.37',
+          cpc: '0.05',
+          ctr: '6.67',
+          conversions: '0',
+          cost_per_conversion: '0',
+          conversion_rate: '0',
+          date_start: '2025-07-03',
+          date_stop: '2025-09-11',
+          actions: [
+            { action_type: 'video_view', value: '36272' },
+            { action_type: 'video_p25_watched', value: '28945' },
+            { action_type: 'video_p50_watched', value: '15234' }
+          ]
+        }]
+      }
+    },
+    {
+      id: '120210000000000003',
+      name: 'Conversão - Vendas Online',
+      status: 'PAUSED',
+      objective: 'CONVERSIONS',
+      daily_budget: '25000',
+      created_time: '2025-08-01T10:00:00+0000',
+      insights: {
+        data: [{
+          impressions: '95123',
+          clicks: '4567',
+          spend: '1234.56',
+          reach: '67890',
+          cpm: '12.99',
+          cpc: '0.27',
+          ctr: '4.80',
+          conversions: '78',
+          cost_per_conversion: '15.83',
+          conversion_rate: '1.71',
+          date_start: '2025-08-01',
+          date_stop: '2025-09-11',
+          actions: [
+            { action_type: 'purchase', value: '78' },
+            { action_type: 'add_to_cart', value: '156' },
+            { action_type: 'initiate_checkout', value: '123' }
+          ]
+        }]
+      }
+    },
+    {
+      id: '120210000000000004',
+      name: 'Tráfego para Site',
+      status: 'DRAFT',
+      objective: 'LINK_CLICKS',
+      daily_budget: '12000',
+      created_time: '2025-09-01T10:00:00+0000',
+      insights: {
+        data: [{
+          impressions: '67543',
+          clicks: '3421',
+          spend: '678.90',
+          reach: '45123',
+          cpm: '10.05',
+          cpc: '0.20',
+          ctr: '5.07',
+          conversions: '45',
+          cost_per_conversion: '15.09',
+          conversion_rate: '1.32',
+          date_start: '2025-09-01',
+          date_stop: '2025-09-11',
+          actions: [
+            { action_type: 'link_click', value: '3421' },
+            { action_type: 'landing_page_view', value: '2987' },
+            { action_type: 'complete_registration', value: '45' }
+          ]
+        }]
+      }
+    }
+  ];
+
+  // Função para verificar integrações conectadas
+  const checkConnectedIntegrations = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Buscar integrações conectadas do usuário
+      const { data: integrations, error } = await supabase
+        .from('ad_integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('platform', 'meta')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Erro ao buscar integrações:', error);
+        return;
+      }
+
+      setIntegrations(integrations || []);
+      setHasConnectedIntegrations((integrations || []).length > 0);
+      
+      if ((integrations || []).length > 0) {
+        console.log('✅ Integrações Meta conectadas encontradas:', integrations?.length);
+      } else {
+        console.log('⚠️ Nenhuma integração Meta conectada');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar integrações:', error);
+    }
+  }, []);
+
+  // Função para sincronizar campanhas reais
+  const syncRealCampaigns = useCallback(async () => {
+    if (!hasConnectedIntegrations) {
+      console.log('⚠️ Sem integrações conectadas, usando dados demo');
+      return loadDemoData();
+    }
+
+    setLoading(true);
+    try {
+      console.log('🔄 Sincronizando campanhas reais do Meta...');
+      
+      // Chamar a função Supabase para sincronizar campanhas
+      const { data, error } = await supabase.functions.invoke('sync-campaigns', {
+        body: {
+          platform: 'meta',
+          date_range: {
+            since: dateRange.since,
+            until: dateRange.until
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro na sincronização:', error);
+        throw error;
+      }
+
+      if (data && data.success && data.campaigns) {
+        console.log('✅ Campanhas sincronizadas:', data.campaigns.length);
+        setCampaigns(data.campaigns);
+        setAccountInfo(data.account_info || null);
+        setLastSync(new Date().toISOString());
+        filterCampaigns(statusFilter);
+      } else {
+        throw new Error('Resposta inválida da API');
+      }
+    } catch (error) {
+      console.error('🚫 Erro na sincronização, carregando dados demo:', error);
+      setError('Erro ao sincronizar campanhas. Carregando dados de demonstração.');
+      loadDemoData();
+    } finally {
+      setLoading(false);
+    }
+  }, [hasConnectedIntegrations, dateRange, statusFilter]);
+
+  // Carregar dados demo como fallback
+  const loadDemoData = useCallback(() => {
+    console.log('📊 Carregando dados de demonstração...');
+    setCampaigns(demoData as Campaign[]);
+    setAccountInfo({
+      id: 'act_363168664437516',
+      name: 'Carpiem Semi-Jóias'
+    });
+    setLastSync(new Date().toISOString());
+    filterCampaigns(statusFilter);
+  }, [statusFilter]);
+
+  // Inicializar componente
+  useEffect(() => {
+    checkConnectedIntegrations();
+  }, [checkConnectedIntegrations]);
+
+  // Sincronizar quando integrações ou período mudarem
+  useEffect(() => {
+    if (hasConnectedIntegrations) {
+      syncRealCampaigns();
+    } else {
+      loadDemoData();
+    }
+  }, [hasConnectedIntegrations, dateRange.since, dateRange.until, syncRealCampaigns, loadDemoData]);
+    setLoading(true);
+    setTimeout(() => {
+      setCampaigns(demoData as Campaign[]);
+      setFilteredCampaigns(demoData as Campaign[]);
+      setAccountInfo({
+        id: 'act_363168664437516',
+        name: 'Carpiem Semi-Jóias'
+      });
+      setLastSync(new Date().toISOString());
+      setLoading(false);
+    }, 1000);
+  }, []);
 
   // Helper function to get metrics from campaign
   const getMetrics = (campaign: Campaign) => {
@@ -89,33 +322,32 @@ const MetaCampaignsWithSync = () => {
     const insights = campaign.insights?.data?.[0];
     if (!insights || !insights.actions) return 0;
     
-    // Para campanhas de engajamento, procurar por diferentes tipos de ações
     const actions = insights.actions;
     let totalResults = 0;
     
-    // Somar diferentes tipos de resultados baseado no objetivo da campanha
     actions.forEach((action) => {
       switch (campaign.objective) {
         case 'OUTCOME_ENGAGEMENT':
-          // Para engajamento: likes, comments, shares, etc.
           if (['like', 'comment', 'share', 'post_engagement'].includes(action.action_type)) {
             totalResults += parseInt(action.value || '0');
           }
           break;
         case 'CONVERSIONS':
-          // Para conversões: purchases, leads, etc.
           if (['purchase', 'lead', 'complete_registration'].includes(action.action_type)) {
             totalResults += parseInt(action.value || '0');
           }
           break;
         case 'LINK_CLICKS':
-          // Para cliques: link_click
           if (action.action_type === 'link_click') {
             totalResults += parseInt(action.value || '0');
           }
           break;
+        case 'VIDEO_VIEWS':
+          if (action.action_type === 'video_view') {
+            totalResults += parseInt(action.value || '0');
+          }
+          break;
         default:
-          // Para outros objetivos, usar o primeiro action disponível
           if (actions.length > 0) {
             totalResults = parseInt(actions[0].value || '0');
           }
@@ -125,113 +357,7 @@ const MetaCampaignsWithSync = () => {
     return totalResults;
   };
 
-  const fetchCampaigns = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Obter o user_id do usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Usuário não autenticado');
-        return;
-      }
-
-      // Usar user.id como workspace_id
-      const workspaceId = user.id;
-      console.log('Buscando campanhas reais para workspace_id:', workspaceId);
-
-      // Construir URL com parâmetros de data  
-      let url = `http://localhost:3012/api/meta-campaigns?workspace_id=${workspaceId}`;
-      
-      if (dateRange && dateRange.since && dateRange.until) {
-        url += `&since=${dateRange.since}&until=${dateRange.until}`;
-      } else {
-        url += `&date_preset=${selectedPreset}`;
-      }
-
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        if (errorData.expired) {
-          setError('Token do Meta expirado. Por favor, reconecte sua conta nas Integrações.');
-          return;
-        }
-        
-        throw new Error(errorData.error || 'Erro ao buscar campanhas');
-      }
-
-      const data = await response.json();
-      
-      console.log('Campanhas recebidas:', data);
-      
-      // O backend retorna: { success: true, data: campaigns[], account_info: {...} }
-      setCampaigns(data.data || []);
-      setFilteredCampaigns(data.data || []);
-      setAccountInfo({ 
-        id: data.account_info?.account_id || '', 
-        name: data.account_info?.account_name || '' 
-      });
-      setLastSync(data.sync_timestamp);
-
-    } catch (err) {
-      console.error('Erro ao buscar campanhas:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange, selectedPreset]);
-
-  const syncCampaigns = async () => {
-    try {
-      setSyncing(true);
-      setError(null);
-
-      // Obter o user_id do usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Usuário não autenticado');
-        return;
-      }
-
-      const workspaceId = user.id;
-      console.log('Sincronizando campanhas reais para workspace_id:', workspaceId);
-
-      const response = await fetch('http://localhost:3003/api/sync-meta-campaigns', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workspace_id: workspaceId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao sincronizar campanhas');
-      }
-
-      const syncResult = await response.json();
-      console.log('Sincronização real concluída:', syncResult);
-
-      // Recarregar campanhas após sincronização
-      await fetchCampaigns();
-
-    } catch (err) {
-      console.error('Erro ao sincronizar campanhas:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
-
+  // Formatação PT-BR
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -241,38 +367,31 @@ const MetaCampaignsWithSync = () => {
     }).format(value);
   };
 
-  const formatCurrencyUSD = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
-
   const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
-
-  const formatPercentage = (value: number | string) => {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'percent',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(numValue / 100);
+    return new Intl.NumberFormat('pt-BR').format(value);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
+
+  // Função para filtrar campanhas
+  const filterCampaigns = useCallback((status: string) => {
+    if (status === 'todos') {
+      setFilteredCampaigns(campaigns);
+    } else {
+      const filtered = campaigns.filter(campaign => 
+        campaign.status.toUpperCase() === status.toUpperCase()
+      );
+      setFilteredCampaigns(filtered);
+    }
+    setStatusFilter(status);
+  }, [campaigns]);
+
+  // Atualizar filtros quando campanhas mudarem
+  useEffect(() => {
+    filterCampaigns(statusFilter);
+  }, [campaigns, statusFilter, filterCampaigns]);
 
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -322,8 +441,6 @@ const MetaCampaignsWithSync = () => {
         return 'Tráfego';
       case 'BRAND_AWARENESS':
         return 'Reconhecimento da Marca';
-      case 'LEAD_GENERATION':
-        return 'Geração de Leads';
       case 'OUTCOME_ENGAGEMENT':
         return 'Engajamento';
       case 'OUTCOME_AWARENESS':
@@ -332,24 +449,6 @@ const MetaCampaignsWithSync = () => {
         return objective;
     }
   };
-
-  // Função para filtrar campanhas
-  const filterCampaigns = React.useCallback((status: string) => {
-    if (status === 'todos') {
-      setFilteredCampaigns(campaigns);
-    } else {
-      const filtered = campaigns.filter(campaign => 
-        campaign.status.toUpperCase() === status.toUpperCase()
-      );
-      setFilteredCampaigns(filtered);
-    }
-    setStatusFilter(status);
-  }, [campaigns]);
-
-  // Atualizar filtros quando campanhas mudarem
-  React.useEffect(() => {
-    filterCampaigns(statusFilter);
-  }, [campaigns, statusFilter, filterCampaigns]);
 
   if (loading) {
     return (
@@ -362,25 +461,11 @@ const MetaCampaignsWithSync = () => {
 
   if (error) {
     return (
-      <div className="p-4 text-center space-y-4">
-        <p className="text-red-600">{error}</p>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-800 mb-2">🚀 Sincronização Implementada!</h3>
-          <p className="text-blue-700 text-sm mb-3">
-            A funcionalidade de sincronização com Meta Ads está pronta e funcionando. 
-            Estamos buscando suas campanhas reais com todas as métricas.
-          </p>
-          <ul className="text-left text-blue-700 text-sm space-y-1">
-            <li>✅ API de campanhas conectada ao Meta</li>
-            <li>✅ Métricas reais (gastos, cliques, impressões, CTR, CPC, CPM)</li>
-            <li>✅ Sincronização automática com banco de dados</li>
-            <li>✅ Interface rica com formatação de moeda e estatísticas</li>
-          </ul>
-        </div>
-        <Button onClick={fetchCampaigns} variant="outline">
-          Tentar Novamente
-        </Button>
-      </div>
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -400,61 +485,45 @@ const MetaCampaignsWithSync = () => {
               Última sincronização: {formatDate(lastSync)} às {new Date(lastSync).toLocaleTimeString('pt-BR')}
             </p>
           )}
+          <p className="text-xs text-blue-600">
+            🎯 DEMONSTRAÇÃO: Dados com Actions Corretas
+          </p>
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={fetchCampaigns}
+            onClick={() => window.location.reload()}
             variant="outline"
             size="sm"
-            disabled={loading}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
-            Atualizar
-          </Button>
-          <Button
-            onClick={syncCampaigns}
-            variant="default"
-            size="sm"
-            disabled={syncing}
-          >
-            {syncing ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <TrendingUp className="h-4 w-4 mr-1" />
-            )}
-            Sincronizar
+            Recarregar
           </Button>
         </div>
       </div>
 
       {/* Seletor de Período */}
-      <div className="flex flex-wrap gap-4 items-center p-4 bg-gray-50 rounded-lg">
+      <div className="flex flex-wrap gap-4 items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border">
         <div className="flex items-center gap-2">
-          <CalendarIcon className="h-4 w-4 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700">Período:</span>
+          <CalendarIcon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Período:</span>
         </div>
         
-        <Select value={selectedPreset} onValueChange={(value) => {
-          setSelectedPreset(value);
-          setDateRange(null); // Limpar range customizado quando selecionar preset
-        }}>
+        <Select value={selectedPreset} onValueChange={setSelectedPreset}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Selecionar período" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="today">Hoje</SelectItem>
             <SelectItem value="yesterday">Ontem</SelectItem>
-            <SelectItem value="last_7d">Últimos 7 dias</SelectItem>
-            <SelectItem value="last_14d">Últimos 14 dias</SelectItem>
-            <SelectItem value="last_30d">Últimos 30 dias</SelectItem>
+            <SelectItem value="last_7d">7 dias</SelectItem>
+            <SelectItem value="last_14d">14 dias</SelectItem>
+            <SelectItem value="last_30d">30 dias</SelectItem>
             <SelectItem value="this_month">Este mês</SelectItem>
             <SelectItem value="last_month">Mês passado</SelectItem>
-            <SelectItem value="this_quarter">Este trimestre</SelectItem>
-            <SelectItem value="lifetime">Desde sempre</SelectItem>
           </SelectContent>
         </Select>
 
-        <span className="text-gray-400">ou</span>
+        <span className="text-slate-500 dark:text-slate-400">ou</span>
 
         <Popover open={showCalendar} onOpenChange={setShowCalendar}>
           <PopoverTrigger asChild>
@@ -492,11 +561,7 @@ const MetaCampaignsWithSync = () => {
               </div>
               <Button 
                 size="sm" 
-                onClick={() => {
-                  setShowCalendar(false);
-                  setSelectedPreset('custom');
-                  fetchCampaigns();
-                }}
+                onClick={() => setShowCalendar(false)}
                 disabled={!dateRange?.since || !dateRange?.until}
               >
                 Aplicar Período
@@ -504,52 +569,37 @@ const MetaCampaignsWithSync = () => {
             </div>
           </PopoverContent>
         </Popover>
-
-        <Button 
-          onClick={fetchCampaigns} 
-          size="sm"
-          disabled={loading}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}
-        </Button>
       </div>
 
       {/* Filtros por Status */}
       <div className="flex flex-wrap gap-2">
         <Button
-          onClick={() => setStatusFilter('todos')}
+          onClick={() => filterCampaigns('todos')}
           variant={statusFilter === 'todos' ? 'default' : 'outline'}
           size="sm"
         >
           Todas ({campaigns.length})
         </Button>
         <Button
-          onClick={() => setStatusFilter('ACTIVE')}
+          onClick={() => filterCampaigns('ACTIVE')}
           variant={statusFilter === 'ACTIVE' ? 'default' : 'outline'}
           size="sm"
         >
           Ativas ({campaigns.filter(c => c.status === 'ACTIVE').length})
         </Button>
         <Button
-          onClick={() => setStatusFilter('PAUSED')}
+          onClick={() => filterCampaigns('PAUSED')}
           variant={statusFilter === 'PAUSED' ? 'default' : 'outline'}
           size="sm"
         >
           Pausadas ({campaigns.filter(c => c.status === 'PAUSED').length})
         </Button>
         <Button
-          onClick={() => setStatusFilter('DRAFT')}
+          onClick={() => filterCampaigns('DRAFT')}
           variant={statusFilter === 'DRAFT' ? 'default' : 'outline'}
           size="sm"
         >
           Rascunhos ({campaigns.filter(c => c.status === 'DRAFT').length})
-        </Button>
-        <Button
-          onClick={() => setStatusFilter('ARCHIVED')}
-          variant={statusFilter === 'ARCHIVED' ? 'default' : 'outline'}
-          size="sm"
-        >
-          Arquivadas ({campaigns.filter(c => c.status === 'ARCHIVED').length})
         </Button>
       </div>
 
@@ -560,11 +610,6 @@ const MetaCampaignsWithSync = () => {
             <p className="text-gray-500">
               {campaigns.length === 0 ? 'Nenhuma campanha encontrada' : 'Nenhuma campanha encontrada com o filtro selecionado'}
             </p>
-            {campaigns.length === 0 && (
-              <Button onClick={syncCampaigns} className="mt-4">
-                Sincronizar Campanhas
-              </Button>
-            )}
           </CardContent>
         </Card>
       ) : (
@@ -578,18 +623,19 @@ const MetaCampaignsWithSync = () => {
                     {getStatusText(campaign.status)}
                   </Badge>
                 </div>
-                <div className="text-sm text-gray-600">
-                  <p>Objetivo: {campaign.objective}</p>
-                  <p>Criada em: {new Date(campaign.created_time).toLocaleDateString('pt-BR')}</p>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span>Objetivo: {getObjectiveText(campaign.objective)}</span>
+                  <span>Orçamento: {formatCurrency(parseFloat(campaign.daily_budget) / 100)}/dia</span>
+                  <span>Criada: {formatDate(campaign.created_time)}</span>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* Gastos */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                  {/* Gasto */}
                   <div className="flex items-center space-x-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <div>
-                      <p className="text-xs text-gray-500">Gastos</p>
+                      <p className="text-xs text-gray-500">Gasto</p>
                       <p className="font-semibold">{formatCurrency(parseFloat(getMetrics(campaign).spend || '0'))}</p>
                     </div>
                   </div>
@@ -656,15 +702,6 @@ const MetaCampaignsWithSync = () => {
                       <p className="font-bold text-green-800">{formatNumber(getResults(campaign))}</p>
                     </div>
                   </div>
-
-                  {/* Conversões */}
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="h-4 w-4 text-amber-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">Conversões</p>
-                      <p className="font-semibold">{formatNumber(parseInt(getMetrics(campaign).conversions || '0'))}</p>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -675,4 +712,4 @@ const MetaCampaignsWithSync = () => {
   );
 };
 
-export default MetaCampaignsWithSync;
+export default MetaCampaignsDemo;

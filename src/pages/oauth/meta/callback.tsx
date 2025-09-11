@@ -76,13 +76,18 @@ const MetaOAuthCallback: React.FC = () => {
         ? 'http://localhost:8080/oauth/meta/callback'
         : 'https://dashboard.agenciastorytelling.com.br/oauth/meta/callback';
       const apiUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:3001/api/meta-exchange-token'
+        ? 'http://localhost:3012/api/meta-exchange-token'
         : 'https://apidash.agenciastorytelling.com.br/api/meta-exchange-token';
 
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirect_uri }),
+        body: JSON.stringify({ 
+          code, 
+          redirect_uri,
+          app_id: '707350985805370', // Meta App ID
+          app_secret: 'c960b0d5bab06fc898a209ade4435007' // Meta App Secret
+        }),
       });
 
       const data = await res.json();

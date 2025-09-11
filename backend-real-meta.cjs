@@ -107,8 +107,9 @@ async function fetchMetaData(accessToken, accountId, endpoint) {
 // Endpoint principal - Meta Campaigns
 app.get('/api/meta-campaigns', async (req, res) => {
   try {
-    const { workspace_id } = req.query;
+    const { workspace_id, date_preset = 'last_30d', since, until } = req.query;
     console.log(`🎯 Solicitação de campanhas para workspace: ${workspace_id}`);
+    console.log(`📅 Período solicitado: ${date_preset}, since: ${since}, until: ${until}`);
 
     if (!workspace_id) {
       return res.status(400).json({
@@ -140,11 +141,19 @@ app.get('/api/meta-campaigns', async (req, res) => {
     }
 
     try {
-      // Buscar campanhas da Meta API
+      // Construir parâmetros de data para insights
+      let timeParams = '';
+      if (since && until) {
+        timeParams = `&time_range={'since':'${since}','until':'${until}'}`;
+      } else {
+        timeParams = `&date_preset=${date_preset}`;
+      }
+
+      // Buscar campanhas da Meta API com insights detalhados incluindo actions (resultados)
       const campaignsData = await fetchMetaData(
         credentials.access_token,
         credentials.account_id,
-        'campaigns?fields=id,name,status,objective,daily_budget,created_time,insights.limit(1){impressions,clicks,spend,reach,cpm,cpc,ctr,conversions,cost_per_conversion}&limit=50'
+        `campaigns?fields=id,name,status,objective,daily_budget,created_time,insights.limit(1){impressions,clicks,spend,reach,cpm,cpc,ctr,conversions,cost_per_conversion,actions,action_values}${timeParams}&limit=50`
       );
 
       console.log(`✅ ${campaignsData.data?.length || 0} campanhas encontradas na Meta API`);
@@ -161,7 +170,8 @@ app.get('/api/meta-campaigns', async (req, res) => {
           business_name: credentials.account_name
         },
         sync_timestamp: new Date().toISOString(),
-        source: 'Meta Ads API - Real Data'
+        source: 'Meta Ads API - Real Data',
+        period: { date_preset, since, until }
       });
 
     } catch (apiError) {
@@ -263,11 +273,11 @@ app.get('/api/integrations', async (req, res) => {
 });
 
 // Iniciar servidor
-const server = app.listen(3007, () => {
-  console.log('✅ Meta API Backend com Supabase rodando na porta 3007');
-  console.log('🌐 Health: http://localhost:3007/health');
-  console.log('📊 Campanhas: http://localhost:3007/api/meta-campaigns');
-  console.log('🔗 Integrações: http://localhost:3007/api/integrations');
+const server = app.listen(3008, () => {
+  console.log('✅ Meta API Backend com Supabase rodando na porta 3008');
+  console.log('🌐 Health: http://localhost:3008/health');
+  console.log('📊 Campanhas: http://localhost:3008/api/meta-campaigns');
+  console.log('🔗 Integrações: http://localhost:3008/api/integrations');
   console.log('💾 Supabase conectado');
 });
 

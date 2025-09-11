@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth"; // Importar o componente de autenticação
 import MetaCallback from "./pages/MetaCallback";
+import MetaSelectAccount from "./pages/MetaSelectAccount";
 import { supabase } from './integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 
@@ -53,6 +54,7 @@ const App = () => {
             <Route path="/auth" element={!session ? <Auth /> : <Navigate to="/" />} />
             <Route path="/" element={session ? <Index /> : <Navigate to="/auth" />} />
             <Route path="/oauth/meta/callback" element={<MetaCallback />} />
+            <Route path="/meta/select-account" element={session ? <MetaSelectAccount /> : <Navigate to="/auth" />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
