@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import MetaCampaigns from './MetaCampaigns';
+import { MetaCampaigns } from './MetaCampaigns';
 
 const Campaigns = () => {
   return (

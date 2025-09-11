@@ -86,8 +86,26 @@ const MetaOAuthCallback: React.FC = () => {
       });
 
       const data = await res.json();
+      
       if (!data.access_token) {
-        throw new Error(data.error?.message || 'Erro ao trocar o code pelo token');
+        if (data.is_rate_limited || res.status === 429) {
+          const waitMinutes = data.wait_minutes || 15;
+          toast({
+            title: "Limite de tentativas excedido",
+            description: `O Facebook limitou as tentativas. Aguarde ${waitMinutes} minutos e tente novamente.`,
+            variant: "destructive"
+          });
+          throw new Error(`Rate limit atingido. Aguarde ${waitMinutes} minutos.`);
+        } else if (data.error?.code === 368) {
+          toast({
+            title: "Limite de tentativas excedido",
+            description: "Por favor, aguarde alguns minutos e tente novamente.",
+            variant: "destructive"
+          });
+          throw new Error("Limite de tentativas excedido. Aguarde alguns minutos.");
+        } else {
+          throw new Error(data.error?.message || 'Erro ao trocar o code pelo token');
+        }
       }
 
       setToken(data.access_token);
@@ -97,18 +115,42 @@ const MetaOAuthCallback: React.FC = () => {
       
       // Buscar usuário atual
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) {
+        console.error('Usuário não autenticado');
+        throw new Error('Usuário não autenticado');
+      }
       
-      // Salvar integração no Supabase
-      await supabase.from('ad_integrations').insert({
-        user_id: user.id,
+      console.log('Usuário autenticado:', user.id);
+      
+      // Usar o próprio user_id como workspace_id temporariamente
+      // Em produção, você deve implementar a lógica correta de workspace
+      const workspaceId = user.id; // Usar o UUID do usuário diretamente
+      
+      console.log('Usando workspace_id:', workspaceId);
+      
+      // Tentar primeiro com user_id (se a coluna ainda existir)
+      // Se não funcionar, usar workspace_id temporário
+      const integrationData = {
+        workspace_id: workspaceId, // Usar UUID válido
         platform: 'meta',
         account_id: accountInfo.account_id,
         account_name: accountInfo.account_name,
         access_token: data.access_token,
         is_active: true,
         settings: accountInfo
-      });
+      };
+      
+      console.log('Salvando integração:', { ...integrationData, access_token: '[REDACTED]' });
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: insertResult, error: dbError } = await (supabase as any).from('ad_integrations').insert([integrationData]).select();
+      
+      if (dbError) {
+        console.error('Erro ao salvar integração:', dbError);
+        throw dbError;
+      }
+      
+      console.log('Integração salva com sucesso:', insertResult);
 
       toast({ 
         title: 'Conta Meta conectada!', 

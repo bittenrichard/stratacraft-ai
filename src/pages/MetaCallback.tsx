@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function MetaCallback() {
   const navigate = useNavigate();
@@ -17,14 +18,24 @@ export default function MetaCallback() {
           throw new Error('Código não fornecido pelo Facebook');
         }
 
+        // Buscar usuário atual para ter o workspace_id
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('Usuário não autenticado');
+        }
+
+        const workspaceId = user.id; // Usar o ID do usuário como workspace_id
+
         // Detecta ambiente para redirect_uri
         const isLocal = window.location.hostname === 'localhost';
+        const currentPort = window.location.port;
         const redirectUri = isLocal
-          ? 'http://localhost:8080/oauth/meta/callback'
+          ? `http://localhost:${currentPort || '8080'}/oauth/meta/callback`
           : 'https://dashboard.agenciastorytelling.com.br/oauth/meta/callback';
 
         console.log('Usando redirect_uri:', redirectUri);
         console.log('Código recebido:', code);
+        console.log('Workspace ID:', workspaceId);
 
         // Faz a troca do código pelo token
         const response = await fetch('http://localhost:3001/api/meta-exchange-token', {
@@ -34,7 +45,8 @@ export default function MetaCallback() {
           },
           body: JSON.stringify({
             code,
-            redirect_uri: redirectUri
+            redirect_uri: redirectUri,
+            workspace_id: workspaceId
           })
         });
 
@@ -60,11 +72,12 @@ export default function MetaCallback() {
         // Redireciona de volta para a página inicial e sinaliza para abrir a tab de integrações
         localStorage.setItem('openTab', 'integrations');
         navigate('/');
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         console.error('Erro no callback:', error);
         toast({
           title: "Erro na conexão",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive"
         });
         // No erro também redirecionamos para a página inicial

@@ -140,9 +140,8 @@ const Integrations = () => {
       const appId = '707350985805370';
       // Detecta ambiente para redirect_uri
       const isLocal = window.location.hostname === 'localhost';
-      const currentPort = window.location.port;
       const redirectUri = isLocal
-        ? `http://localhost:${currentPort || '8080'}/oauth/meta/callback`
+        ? 'http://localhost:8080/oauth/meta/callback'
         : 'https://dashboard.agenciastorytelling.com.br/oauth/meta/callback';
       const scope = [
         'ads_management',
@@ -235,15 +234,15 @@ const Integrations = () => {
           const IconComponent = platform.icon;
 
           return (
-            <Card key={platform.id} className={`transition-all hover:shadow-md ${isConnected ? 'ring-2 ring-green-200' : ''} ${getColorClass(platform.color)}`}>
+            <Card key={platform.id} className={`transition-all hover:shadow-md ${getColorClass(platform.color)}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg bg-white shadow-sm ${isConnected ? 'ring-2 ring-green-400' : ''}`}>
-                      <IconComponent className={`h-6 w-6 ${isConnected ? 'text-green-600' : 'text-gray-600'}`} />
+                    <div className={`p-2 rounded-lg bg-white shadow-sm`}>
+                      <IconComponent className="h-6 w-6" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-semibold">{platform.name}</CardTitle>
+                      <CardTitle className="text-lg">{platform.name}</CardTitle>
                       <p className="text-sm text-muted-foreground">{platform.description}</p>
                     </div>
                   </div>
@@ -264,23 +263,19 @@ const Integrations = () => {
               <CardContent className="pt-0">
                 {isConnected && connectedIntegration ? (
                   <div className="space-y-3">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="text-sm space-y-1">
-                        <p><strong>Conta:</strong> {connectedIntegration.account_name}</p>
-                        <p><strong>ID:</strong> {connectedIntegration.account_id}</p>
-                        <p><strong>Conectado em:</strong> {new Date(connectedIntegration.created_at).toLocaleDateString('pt-BR')}</p>
-                      </div>
+                    <div className="text-sm">
+                      <p><strong>Conta:</strong> {connectedIntegration.account_name}</p>
+                      <p><strong>Conectado em:</strong> {new Date(connectedIntegration.created_at).toLocaleDateString('pt-BR')}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => handleDisconnect(connectedIntegration.id)}
-                        className="flex-1"
                       >
                         Desconectar
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button variant="outline" size="sm">
                         <ExternalLink className="h-3 w-3 mr-1" />
                         Configurar
                       </Button>
@@ -296,7 +291,7 @@ const Integrations = () => {
                       className="w-full"
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
-                      Conectar {platform.name}
+                      Conectar
                     </Button>
                   </div>
                 )}
@@ -306,7 +301,7 @@ const Integrations = () => {
         })}
       </div>
 
-      {!availablePlatforms.some(platform => isPlatformConnected(platform.id)) && (
+      {integrations.length === 0 && (
         <Card className="text-center py-12">
           <CardContent>
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
