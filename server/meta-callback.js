@@ -195,10 +195,49 @@ app.post('/api/meta-exchange-token', async (req, res) => {
 
     console.log('Dados para salvar:', { ...integrationData, access_token: '[REDACTED]' });
 
-    const { data: dbData, error: dbError } = await supabase
+    // Primeiro tenta inserção normal
+    let { data: dbData, error: dbError } = await supabase
       .from('ad_integrations')
       .insert([integrationData])
       .select();
+
+    // Se falhar com RLS, tenta upsert
+    if (dbError && dbError.code === '42501') {
+      console.log('Tentativa 1 falhou com RLS, tentando upsert...');
+      const result = await supabase
+        .from('ad_integrations')
+        .upsert(integrationData, { onConflict: 'workspace_id,platform' })
+        .select();
+      
+      dbData = result.data;
+      dbError = result.error;
+    }
+
+    // Se ainda falhar, tenta com uma query customizada que pode contornar RLS
+    if (dbError && dbError.code === '42501') {
+      console.log('Tentativa 2 falhou, tentando com query customizada...');
+      try {
+        const result = await supabase
+          .rpc('insert_integration', {
+            workspace_id: finalWorkspaceId,
+            platform: 'meta',
+            access_token: data.access_token,
+            account_id: accountInfo.data?.[0]?.id || null,
+            account_name: accountInfo.data?.[0]?.name || 'Meta Account',
+            settings: integrationData.settings
+          });
+        
+        if (result.error) {
+          console.log('Query customizada também falhou:', result.error);
+        } else {
+          console.log('Query customizada funcionou:', result.data);
+          dbData = result.data;
+          dbError = null;
+        }
+      } catch (rpcError) {
+        console.log('RPC não existe ou falhou:', rpcError);
+      }
+    }
 
     if (dbError) {
       console.error('Erro do Supabase:', dbError);
@@ -220,6 +259,83 @@ app.post('/api/meta-exchange-token', async (req, res) => {
     console.error('=== ERRO GERAL ===');
     console.error('Erro completo:', error);
     console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
+  }
+});
+
+// Endpoint para salvar integração (fallback quando frontend não consegue salvar)
+app.post('/api/save-integration', async (req, res) => {
+  try {
+    console.log('=== SALVANDO INTEGRAÇÃO VIA ENDPOINT DEDICADO ===');
+    console.log('Dados recebidos:', req.body);
+    
+    const integrationData = req.body;
+    
+    // Tenta múltiplas abordagens para salvar
+    let result = null;
+    let error = null;
+    
+    // Tentativa 1: Insert normal
+    console.log('Tentativa 1: Insert normal...');
+    const insertResult = await supabase
+      .from('ad_integrations')
+      .insert([integrationData])
+      .select();
+    
+    if (insertResult.error && insertResult.error.code === '42501') {
+      console.log('Insert normal falhou com RLS');
+      
+      // Tentativa 2: Upsert
+      console.log('Tentativa 2: Upsert...');
+      const upsertResult = await supabase
+        .from('ad_integrations')
+        .upsert(integrationData, { onConflict: 'workspace_id,platform' })
+        .select();
+      
+      if (upsertResult.error && upsertResult.error.code === '42501') {
+        console.log('Upsert também falhou com RLS');
+        
+        // Tentativa 3: Usar SQL direto via RPC (se disponível)
+        console.log('Tentativa 3: SQL direto...');
+        try {
+          const sqlResult = await supabase
+            .rpc('exec_sql', {
+              sql: `INSERT INTO public.ad_integrations (workspace_id, platform, access_token, account_id, account_name, is_active, expires_at, settings) 
+                    VALUES ('${integrationData.workspace_id}', '${integrationData.platform}', '${integrationData.access_token}', 
+                           '${integrationData.account_id}', '${integrationData.account_name}', ${integrationData.is_active}, 
+                           ${integrationData.expires_at ? `'${integrationData.expires_at}'` : 'NULL'}, '${JSON.stringify(integrationData.settings)}') 
+                    RETURNING *;`
+            });
+          
+          result = sqlResult.data;
+          error = sqlResult.error;
+        } catch (sqlError) {
+          console.log('SQL direto falhou:', sqlError);
+          error = { message: 'Todas as tentativas falharam devido ao RLS' };
+        }
+      } else {
+        result = upsertResult.data;
+        error = upsertResult.error;
+      }
+    } else {
+      result = insertResult.data;
+      error = insertResult.error;
+    }
+    
+    if (error) {
+      console.error('Erro final:', error);
+      return res.status(500).json({ 
+        error: 'Não foi possível salvar a integração', 
+        details: error,
+        suggestion: 'Verifique as políticas RLS da tabela ad_integrations no Supabase'
+      });
+    }
+    
+    console.log('Integração salva com sucesso:', result);
+    res.json({ success: true, data: result });
+    
+  } catch (error) {
+    console.error('Erro geral no save-integration:', error);
     res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   }
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import MetaCampaigns from './MetaCampaigns';
+import MetaCampaignsWithSync from './MetaCampaignsWithSync';
 
 const Campaigns = () => {
   return (
@@ -11,10 +11,10 @@ const Campaigns = () => {
       
       <Card>
         <CardHeader>
-          <CardTitle>Campanhas do Meta Ads</CardTitle>
+          <CardTitle>Gerenciamento de Campanhas</CardTitle>
         </CardHeader>
         <CardContent>
-          <MetaCampaigns />
+          <MetaCampaignsWithSync />
         </CardContent>
       </Card>
     </div>

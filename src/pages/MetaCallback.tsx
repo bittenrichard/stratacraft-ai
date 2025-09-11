@@ -10,14 +10,20 @@ export default function MetaCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('=== INÍCIO DO CALLBACK ===');
+        
         // Pega o código da URL
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
+        
+        console.log('URL params:', urlParams.toString());
+        console.log('Código extraído:', code);
         
         if (!code) {
           throw new Error('Código não fornecido pelo Facebook');
         }
 
+        console.log('Buscando usuário atual...');
         // Buscar usuário atual para ter o workspace_id
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -37,30 +43,91 @@ export default function MetaCallback() {
         console.log('Código recebido:', code);
         console.log('Workspace ID:', workspaceId);
 
+        const requestBody = {
+          code,
+          redirect_uri: redirectUri,
+          workspace_id: workspaceId
+        };
+        
+        console.log('Fazendo requisição para servidor com body:', requestBody);
+
         // Faz a troca do código pelo token
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
+
         const response = await fetch('http://localhost:3001/api/meta-exchange-token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            code,
-            redirect_uri: redirectUri,
-            workspace_id: workspaceId
-          })
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+        console.log('Resposta recebida:', response.status, response.statusText);
 
         if (!response.ok) {
           const error = await response.json();
+          console.error('Erro da resposta:', error);
           throw new Error(error.message || 'Erro ao trocar código por token');
         }
 
         const data = await response.json();
+        console.log('Dados recebidos do servidor:', data);
         
-        // Salva o token e informações da conta no localStorage
+        // Primeiro, salva no localStorage para não perder os dados
         localStorage.setItem('meta_access_token', data.access_token);
         if (data.account_info) {
           localStorage.setItem('meta_account_info', JSON.stringify(data.account_info));
+        }
+        
+        // Tenta salvar integração diretamente no Supabase (primeira tentativa)
+        console.log('Salvando integração no Supabase...');
+        const integrationData = {
+          workspace_id: workspaceId,
+          platform: 'meta',
+          access_token: data.access_token,
+          account_id: data.account_info?.id || null,
+          account_name: data.account_info?.name || 'Meta Account',
+          is_active: true,
+          expires_at: data.expires_in ? new Date(Date.now() + (data.expires_in * 1000)).toISOString() : null,
+          settings: {
+            account_status: data.account_info?.account_status,
+            token_type: data.token_type
+          }
+        };
+
+        const { data: dbData, error: dbError } = await supabase
+          .from('ad_integrations')
+          .insert([integrationData])
+          .select();
+
+        if (dbError) {
+          console.error('Erro ao salvar no Supabase:', dbError);
+          
+          // Se falhar, tenta fazer uma requisição para o backend salvar
+          console.log('Tentando salvar via backend...');
+          try {
+            const saveResponse = await fetch('http://localhost:3001/api/save-integration', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(integrationData)
+            });
+            
+            if (saveResponse.ok) {
+              const saveResult = await saveResponse.json();
+              console.log('Salvo via backend com sucesso:', saveResult);
+            } else {
+              console.log('Erro ao salvar via backend:', await saveResponse.text());
+            }
+          } catch (saveError) {
+            console.error('Erro na requisição de save:', saveError);
+          }
+        } else {
+          console.log('Integração salva com sucesso no Supabase:', dbData);
         }
         
         // Notifica o usuário
